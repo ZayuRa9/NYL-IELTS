@@ -1,12 +1,14 @@
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
-import { QuestionGroup } from '../types/exam';
+import { QuestionGroup, TextHighlight } from '../types/exam';
+import { HighlightableText } from './HighlightableText';
 
 interface QuestionRendererProps {
   group: QuestionGroup;
   answers: Record<number, string>;
   currentQuestionNumber: number;
   textSizeClass: string;
+  highlights?: TextHighlight[];
   onChangeAnswer: (questionNumber: number, value: string) => void;
   onFocusQuestion: (questionNumber: number) => void;
 }
@@ -15,6 +17,7 @@ function renderInlineBlankPrompt(
   prompt: string,
   qNumber: number,
   value: string,
+  highlights: TextHighlight[],
   onChangeAnswer: (questionNumber: number, value: string) => void,
   onFocusQuestion: (questionNumber: number) => void
 ) {
@@ -22,7 +25,9 @@ function renderInlineBlankPrompt(
   if (!blankMatch) {
     return (
       <>
-        <span>{prompt}</span>
+        <span>
+          <HighlightableText text={prompt} highlights={highlights} />
+        </span>
         <input
           type="text"
           aria-label={`Answer for question ${qNumber}`}
@@ -39,7 +44,9 @@ function renderInlineBlankPrompt(
   const parts = prompt.split(/_{4,}|…{2,}|\.{4,}/);
   return parts.map((part, idx) => (
     <React.Fragment key={idx}>
-      <span>{part}</span>
+      <span>
+        <HighlightableText text={part} highlights={highlights} />
+      </span>
       {idx < parts.length - 1 && (
         <input
           type="text"
@@ -59,6 +66,7 @@ function renderTableCellWithInputs(
   cellText: string,
   answers: Record<number, string>,
   currentQuestionNumber: number,
+  highlights: TextHighlight[],
   onChangeAnswer: (questionNumber: number, value: string) => void,
   onFocusQuestion: (questionNumber: number) => void
 ) {
@@ -68,7 +76,11 @@ function renderTableCellWithInputs(
       {tokens.map((tok, idx) => {
         const match = tok.match(/^\{\{(\d+)\}\}$/);
         if (!match) {
-          return <React.Fragment key={idx}>{tok}</React.Fragment>;
+          return (
+            <React.Fragment key={idx}>
+              <HighlightableText text={tok} highlights={highlights} />
+            </React.Fragment>
+          );
         }
         const qNum = parseInt(match[1], 10);
         const isCurrent = qNum === currentQuestionNumber;
@@ -105,6 +117,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   answers,
   currentQuestionNumber,
   textSizeClass,
+  highlights = [],
   onChangeAnswer,
   onFocusQuestion,
 }) => {
@@ -113,6 +126,13 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     group.type === 'multiple-choice' &&
     Boolean(group.maxSelect && group.maxSelect > 1) &&
     group.questions.length === group.maxSelect;
+
+  const preventToggleWhileHighlighting = (e: React.MouseEvent<HTMLLabelElement>) => {
+    const sel = window.getSelection()?.toString().trim() || '';
+    if (sel.length >= 2) {
+      e.preventDefault();
+    }
+  };
 
   const renderMultiSelectBlock = () => {
     const qNums = group.questions.map((q) => q.number);
@@ -165,7 +185,10 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           <div className="flex-1 space-y-2.5 min-w-0">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="leading-relaxed font-medium">
-                {group.sharedPrompt || group.questions[0]?.prompt}
+                <HighlightableText
+                  text={group.sharedPrompt || group.questions[0]?.prompt || ''}
+                  highlights={highlights}
+                />
               </p>
               <span className="text-xs font-mono-num text-[var(--cdi-muted)]">
                 Đã chọn {selectedLetters.length}/{maxSelect}
@@ -181,6 +204,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 return (
                   <label
                     key={opt}
+                    onClick={preventToggleWhileHighlighting}
                     className={`flex items-start gap-2.5 px-3 py-1.5 rounded border text-sm cursor-pointer transition-colors ${
                       isChecked
                         ? 'border-[#C8102E] bg-red-500/10 font-medium'
@@ -194,7 +218,9 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                       onChange={() => handleToggleLetter(optionValue.toUpperCase())}
                       className="mt-1 accent-[#C8102E] cursor-pointer"
                     />
-                    <span className="leading-snug">{opt}</span>
+                    <span className="leading-snug">
+                      <HighlightableText text={opt} highlights={highlights} />
+                    </span>
                   </label>
                 );
               })}
@@ -208,13 +234,17 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   return (
     <section className="space-y-4 pb-6 border-b border-[var(--cdi-border)] last:border-b-0">
       <div className="space-y-1">
-        <h3 className="text-sm font-bold text-[var(--cdi-text)]">{group.title}</h3>
-        <p className="text-xs text-[var(--cdi-muted)] leading-relaxed">{group.instruction}</p>
+        <h3 className="text-sm font-bold text-[var(--cdi-text)]">
+          <HighlightableText text={group.title} highlights={highlights} />
+        </h3>
+        <p className="text-xs text-[var(--cdi-muted)] leading-relaxed">
+          <HighlightableText text={group.instruction} highlights={highlights} />
+        </p>
       </div>
 
       {group.sharedPrompt && !isMultiSelectPair && (
         <div className="px-3.5 py-2.5 rounded border border-[var(--cdi-border)] bg-[var(--cdi-surface)] text-xs font-semibold tracking-wide text-[var(--cdi-text)] whitespace-pre-line">
-          {group.sharedPrompt}
+          <HighlightableText text={group.sharedPrompt} highlights={highlights} />
         </div>
       )}
 
@@ -222,7 +252,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
         <div className="p-3.5 rounded border border-[var(--cdi-border)] bg-[var(--cdi-surface)] space-y-1 text-xs text-[var(--cdi-text)]">
           {sharedOptions.map((opt) => (
             <div key={opt} className="leading-relaxed">
-              {opt}
+              <HighlightableText text={opt} highlights={highlights} />
             </div>
           ))}
         </div>
@@ -238,7 +268,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                     key={header}
                     className="px-3.5 py-2.5 text-xs font-bold border-b border-r last:border-r-0 border-[var(--cdi-border)]"
                   >
-                    {header}
+                    <HighlightableText text={header} highlights={highlights} />
                   </th>
                 ))}
               </tr>
@@ -258,6 +288,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                         cell,
                         answers,
                         currentQuestionNumber,
+                        highlights,
                         onChangeAnswer,
                         onFocusQuestion
                       )}
@@ -297,6 +328,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                         q.prompt,
                         q.number,
                         value,
+                        highlights,
                         onChangeAnswer,
                         onFocusQuestion
                       )}
@@ -342,12 +374,15 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                           q.prompt,
                           q.number,
                           value,
+                          highlights,
                           onChangeAnswer,
                           onFocusQuestion
                         )}
                       </div>
                     ) : (
-                      <p className="leading-relaxed">{q.prompt}</p>
+                      <p className="leading-relaxed">
+                        <HighlightableText text={q.prompt} highlights={highlights} />
+                      </p>
                     )}
 
                     {(group.type === 'multiple-choice' ||
@@ -364,6 +399,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                             return (
                               <label
                                 key={opt}
+                                onClick={preventToggleWhileHighlighting}
                                 className={`flex items-start gap-2.5 px-3 py-1.5 rounded border text-sm cursor-pointer transition-colors ${
                                   isChecked
                                     ? 'border-[#C8102E] bg-red-500/10 font-medium'
@@ -379,7 +415,9 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                                   onChange={() => onChangeAnswer(q.number, optionValue)}
                                   className="mt-1 accent-[#C8102E] cursor-pointer"
                                 />
-                                <span className="leading-snug">{opt}</span>
+                                <span className="leading-snug">
+                                  <HighlightableText text={opt} highlights={highlights} />
+                                </span>
                               </label>
                             );
                           })}

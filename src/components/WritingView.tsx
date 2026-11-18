@@ -1,17 +1,30 @@
 import React, { useRef, useState } from 'react';
 import { Clipboard, Copy, Scissors } from 'lucide-react';
-import { WritingTask } from '../types/exam';
+import { TextHighlight, WritingTask } from '../types/exam';
 import { countWords } from '../utils/examLogic';
+import { getHighlightScopeId } from '../utils/highlightLogic';
+import { HighlightableText } from './HighlightableText';
+import {
+  HighlightsNotesList,
+  HighlightToolbar,
+  useTextSelectionCapture,
+} from './HighlightToolbar';
 
 interface WritingViewProps {
   tasks: WritingTask[];
   activeTaskIndex: number;
   answers: Record<number, string>;
   textSizeClass: string;
+  highlights: TextHighlight[];
+  onAddHighlight: (item: TextHighlight) => void;
+  onRemoveHighlight: (id: string) => void;
+  onUpdateHighlightNote?: (id: string, note: string) => void;
   onChangeAnswer: (taskNumber: number, value: string) => void;
 }
 
-const RenewableEnergySvgChart: React.FC = () => {
+const RenewableEnergySvgChart: React.FC<{ highlights?: TextHighlight[] }> = ({
+  highlights = [],
+}) => {
   const countries = [
     { name: 'Denmark', solar: 14, wind: 58, hydro: 2 },
     { name: 'Germany', solar: 21, wind: 32, hydro: 6 },
@@ -22,7 +35,10 @@ const RenewableEnergySvgChart: React.FC = () => {
   return (
     <div className="p-4 rounded border border-slate-200 bg-white text-slate-900">
       <p className="text-xs font-bold text-slate-900 mb-3">
-        Renewable Electricity Generation by Source (2024, % of total national electricity)
+        <HighlightableText
+          text="Renewable Electricity Generation by Source (2024, % of total national electricity)"
+          highlights={highlights}
+        />
       </p>
       <svg
         viewBox="0 0 520 250"
@@ -87,7 +103,9 @@ const RenewableEnergySvgChart: React.FC = () => {
   );
 };
 
-const WfhLineSvgChart: React.FC = () => {
+const WfhLineSvgChart: React.FC<{ highlights?: TextHighlight[] }> = ({
+  highlights = [],
+}) => {
   const years = [2016, 2018, 2020, 2022, 2024, 2026];
   const series = [
     { name: 'Canada', color: '#C8102E', dash: undefined, values: [6, 8, 38, 30, 27, 29] },
@@ -102,7 +120,10 @@ const WfhLineSvgChart: React.FC = () => {
   return (
     <div className="p-4 rounded border border-slate-200 bg-white text-slate-900">
       <p className="text-xs font-bold text-center text-slate-900 mb-2">
-        Employees working from home at least three days a week (%), 2016–2026
+        <HighlightableText
+          text="Employees working from home at least three days a week (%), 2016–2026"
+          highlights={highlights}
+        />
       </p>
       <svg
         viewBox="0 0 520 260"
@@ -204,6 +225,10 @@ export const WritingView: React.FC<WritingViewProps> = ({
   activeTaskIndex,
   answers,
   textSizeClass,
+  highlights,
+  onAddHighlight,
+  onRemoveHighlight,
+  onUpdateHighlightNote,
   onChangeAnswer,
 }) => {
   const task = tasks[activeTaskIndex] || tasks[0];
@@ -213,7 +238,12 @@ export const WritingView: React.FC<WritingViewProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const draggingRef = useRef(false);
 
+  const scopeId = task ? getHighlightScopeId('writing', task.id) : 'writing:none';
+  const { selectedSnippet, captureSelection, clearSelection } = useTextSelectionCapture(scopeId);
+
   if (!task) return null;
+
+  const taskHighlights = highlights.filter((h) => h.passageId === scopeId);
 
   const essay = answers[task.taskNumber] ?? '';
   const wordCount = countWords(essay);
@@ -276,35 +306,65 @@ export const WritingView: React.FC<WritingViewProps> = ({
       ref={containerRef}
       className="flex-1 flex flex-col lg:flex-row min-h-0 bg-[var(--cdi-bg)] text-[var(--cdi-text)] overflow-hidden"
     >
-      {/* Left Pane: Task Prompt & Visual */}
+      {/* Left Pane: Highlight Toolbar + Task Prompt & Visual */}
       <div
         style={{ width: `${leftWidthPct}%` }}
-        className="w-full lg:w-auto overflow-y-auto cdi-scroll px-6 py-5 space-y-5 border-b lg:border-b-0 border-[var(--cdi-border)]"
+        className="w-full lg:w-auto flex flex-col min-h-0 border-b lg:border-b-0 border-[var(--cdi-border)]"
       >
-        <div className="pb-3 border-b border-[var(--cdi-border)] flex items-baseline justify-between gap-4">
-          <h2 className="text-lg font-bold">{task.title}</h2>
-          <span className="text-xs text-[var(--cdi-muted)] whitespace-nowrap">
-            Gợi ý {task.suggestedMinutes} phút · Tối thiểu {task.minWords} từ
-          </span>
-        </div>
+        <HighlightToolbar
+          scopeId={scopeId}
+          hintText={`${task.title} · Bôi đen đề bài để Highlight hoặc ghi chú dàn ý`}
+          highlights={taskHighlights}
+          selectedSnippet={selectedSnippet}
+          onClearSelection={clearSelection}
+          onAddHighlight={onAddHighlight}
+          onRemoveHighlight={onRemoveHighlight}
+          onUpdateHighlightNote={onUpdateHighlightNote}
+          notePlaceholder={`Nhập ghi chú / dàn ý cho ${task.title}...`}
+        />
 
-        <div className={`space-y-3 whitespace-pre-line leading-relaxed ${textSizeClass}`}>
-          {task.prompt}
-        </div>
-
-        {task.imageUrl && (
-          <div className="rounded border border-[var(--cdi-border)] overflow-hidden bg-white p-2">
-            <img
-              src={task.imageUrl}
-              alt={`${task.title} visual diagram`}
-              referrerPolicy="no-referrer"
-              className="w-full h-auto object-contain max-h-96"
-            />
+        <div
+          onMouseUp={captureSelection}
+          onKeyUp={captureSelection}
+          className="flex-1 overflow-y-auto cdi-scroll px-6 py-5 space-y-5"
+        >
+          <div className="pb-3 border-b border-[var(--cdi-border)] flex items-baseline justify-between gap-4">
+            <h2 className="text-lg font-bold">
+              <HighlightableText text={task.title} highlights={taskHighlights} />
+            </h2>
+            <span className="text-xs text-[var(--cdi-muted)] whitespace-nowrap">
+              Gợi ý {task.suggestedMinutes} phút · Tối thiểu {task.minWords} từ
+            </span>
           </div>
-        )}
 
-        {!task.imageUrl && task.svgChartType === 'bar-energy-2026' && <RenewableEnergySvgChart />}
-        {!task.imageUrl && task.svgChartType === 'line-wfh-2016-2026' && <WfhLineSvgChart />}
+          <div className={`space-y-3 whitespace-pre-line leading-relaxed ${textSizeClass}`}>
+            <HighlightableText text={task.prompt} highlights={taskHighlights} />
+          </div>
+
+          {task.imageUrl && (
+            <div className="rounded border border-[var(--cdi-border)] overflow-hidden bg-white p-2">
+              <img
+                src={task.imageUrl}
+                alt={`${task.title} visual diagram`}
+                referrerPolicy="no-referrer"
+                className="w-full h-auto object-contain max-h-96"
+              />
+            </div>
+          )}
+
+          {!task.imageUrl && task.svgChartType === 'bar-energy-2026' && (
+            <RenewableEnergySvgChart highlights={taskHighlights} />
+          )}
+          {!task.imageUrl && task.svgChartType === 'line-wfh-2016-2026' && (
+            <WfhLineSvgChart highlights={taskHighlights} />
+          )}
+
+          <HighlightsNotesList
+            highlights={taskHighlights}
+            onRemoveHighlight={onRemoveHighlight}
+            onUpdateHighlightNote={onUpdateHighlightNote}
+          />
+        </div>
       </div>
 
       {/* Draggable Vertical Splitter */}

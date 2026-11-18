@@ -506,6 +506,18 @@ export default function App() {
             answers={answers.listening}
             currentQuestionNumber={currentQuestionNumber}
             textSizeClass={textSizeClass}
+            highlights={highlights}
+            onAddHighlight={(item) => setHighlights((prev) => [...prev, item])}
+            onRemoveHighlight={(id) =>
+              setHighlights((prev) => prev.filter((item) => item.id !== id))
+            }
+            onUpdateHighlightNote={(id, note) =>
+              setHighlights((prev) =>
+                prev.map((item) =>
+                  item.id === id ? { ...item, note: note || undefined } : item
+                )
+              )
+            }
             onChangeAnswer={handleAnswerChange}
             onFocusQuestion={setCurrentQuestionNumber}
           />
@@ -523,6 +535,13 @@ export default function App() {
             onRemoveHighlight={(id) =>
               setHighlights((prev) => prev.filter((item) => item.id !== id))
             }
+            onUpdateHighlightNote={(id, note) =>
+              setHighlights((prev) =>
+                prev.map((item) =>
+                  item.id === id ? { ...item, note: note || undefined } : item
+                )
+              )
+            }
             onChangeAnswer={handleAnswerChange}
             onFocusQuestion={setCurrentQuestionNumber}
           />
@@ -534,6 +553,18 @@ export default function App() {
             activeTaskIndex={activeContainerIndex}
             answers={answers.writing}
             textSizeClass={textSizeClass}
+            highlights={highlights}
+            onAddHighlight={(item) => setHighlights((prev) => [...prev, item])}
+            onRemoveHighlight={(id) =>
+              setHighlights((prev) => prev.filter((item) => item.id !== id))
+            }
+            onUpdateHighlightNote={(id, note) =>
+              setHighlights((prev) =>
+                prev.map((item) =>
+                  item.id === id ? { ...item, note: note || undefined } : item
+                )
+              )
+            }
             onChangeAnswer={handleAnswerChange}
           />
         )}

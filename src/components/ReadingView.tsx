@@ -1,6 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Highlighter, StickyNote, Trash2 } from 'lucide-react';
 import { ReadingPassage, TextHighlight } from '../types/exam';
+import { getHighlightScopeId } from '../utils/highlightLogic';
+import { HighlightableText } from './HighlightableText';
+import {
+  HighlightsNotesList,
+  HighlightToolbar,
+  useTextSelectionCapture,
+} from './HighlightToolbar';
 import { QuestionRenderer } from './QuestionRenderer';
 
 interface ReadingViewProps {
@@ -12,6 +18,7 @@ interface ReadingViewProps {
   highlights: TextHighlight[];
   onAddHighlight: (item: TextHighlight) => void;
   onRemoveHighlight: (id: string) => void;
+  onUpdateHighlightNote?: (id: string, note: string) => void;
   onChangeAnswer: (questionNumber: number, value: string) => void;
   onFocusQuestion: (questionNumber: number) => void;
 }
@@ -25,20 +32,21 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
   highlights,
   onAddHighlight,
   onRemoveHighlight,
+  onUpdateHighlightNote,
   onChangeAnswer,
   onFocusQuestion,
 }) => {
   const passage = passages[activePassageIndex] || passages[0];
   const [leftWidthPct, setLeftWidthPct] = useState(50);
-  const [selectedSnippet, setSelectedSnippet] = useState('');
-  const [noteInput, setNoteInput] = useState('');
-  const [showNoteForm, setShowNoteForm] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
 
+  const scopeId = passage ? getHighlightScopeId('reading', passage.id) : 'reading:none';
+  const { selectedSnippet, captureSelection, clearSelection } = useTextSelectionCapture(scopeId);
+
   if (!passage) return null;
 
-  const passageHighlights = highlights.filter((h) => h.passageId === passage.id);
+  const passageHighlights = highlights.filter((h) => h.passageId === scopeId);
 
   const handleMouseDownDivider = () => {
     draggingRef.current = true;
@@ -57,70 +65,6 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
     window.addEventListener('mouseup', onUp);
   };
 
-  const captureSelection = () => {
-    const sel = window.getSelection()?.toString().trim() || '';
-    if (sel.length >= 2 && sel.length <= 400) {
-      setSelectedSnippet(sel);
-    }
-  };
-
-  const applyHighlight = (withNote = false) => {
-    if (!selectedSnippet) return;
-    onAddHighlight({
-      id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      passageId: passage.id,
-      text: selectedSnippet,
-      note: withNote && noteInput.trim() ? noteInput.trim() : undefined,
-    });
-    setSelectedSnippet('');
-    setNoteInput('');
-    setShowNoteForm(false);
-    window.getSelection()?.removeAllRanges();
-  };
-
-  const renderParagraphWithHighlights = (para: string) => {
-    if (passageHighlights.length === 0) return para;
-    let segments: (string | { text: string; id: string; note?: string })[] = [para];
-
-    passageHighlights.forEach((hl) => {
-      const nextSegments: typeof segments = [];
-      segments.forEach((seg) => {
-        if (typeof seg !== 'string') {
-          nextSegments.push(seg);
-          return;
-        }
-        const idx = seg.indexOf(hl.text);
-        if (idx === -1) {
-          nextSegments.push(seg);
-          return;
-        }
-        if (idx > 0) nextSegments.push(seg.slice(0, idx));
-        nextSegments.push({ text: hl.text, id: hl.id, note: hl.note });
-        const after = seg.slice(idx + hl.text.length);
-        if (after) nextSegments.push(after);
-      });
-      segments = nextSegments;
-    });
-
-    return segments.map((seg, i) =>
-      typeof seg === 'string' ? (
-        <React.Fragment key={i}>{seg}</React.Fragment>
-      ) : (
-        <mark
-          key={`${seg.id}-${i}`}
-          title={seg.note ? `Note: ${seg.note}` : 'Highlighted text'}
-          style={{
-            backgroundColor: 'var(--cdi-highlight)',
-            color: 'var(--cdi-highlight-text)',
-          }}
-          className="px-0.5 rounded-xs"
-        >
-          {seg.text}
-        </mark>
-      )
-    );
-  };
-
   const paragraphs = passage.content.split(/\n\s*\n/).filter((p) => p.trim());
 
   return (
@@ -133,63 +77,31 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
         style={{ width: `${leftWidthPct}%` }}
         className="w-full lg:w-auto flex flex-col min-h-0 border-b lg:border-b-0 border-[var(--cdi-border)]"
       >
-        <div className="px-5 py-2 border-b border-[var(--cdi-border)] bg-[var(--cdi-surface)] flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <span className="text-xs font-semibold text-[var(--cdi-muted)]">
-            Passage {activePassageIndex + 1} · Bôi đen văn bản để Highlight hoặc ghi chú
-          </span>
-          <div className="flex items-center gap-2">
-            {selectedSnippet && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => applyHighlight(false)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-amber-300 text-slate-900 rounded hover:bg-amber-400 cursor-pointer"
-                >
-                  <Highlighter className="w-3.5 h-3.5" />
-                  <span>Highlight</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNoteForm((prev) => !prev)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-white text-slate-800 border border-slate-300 rounded hover:bg-slate-50 cursor-pointer"
-                >
-                  <StickyNote className="w-3.5 h-3.5" />
-                  <span>Add Note</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {showNoteForm && selectedSnippet && (
-          <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-slate-900 shrink-0">
-            <input
-              type="text"
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="Nhập ghi chú cho đoạn đã chọn..."
-              className="flex-1 px-2.5 py-1 text-xs bg-white border border-amber-300 rounded focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => applyHighlight(true)}
-              className="px-3 py-1 text-xs font-semibold bg-slate-900 text-white rounded cursor-pointer"
-            >
-              Lưu
-            </button>
-          </div>
-        )}
+        <HighlightToolbar
+          scopeId={scopeId}
+          hintText={`Passage ${activePassageIndex + 1} · Bôi đen văn bản để Highlight hoặc ghi chú`}
+          highlights={passageHighlights}
+          selectedSnippet={selectedSnippet}
+          onClearSelection={clearSelection}
+          onAddHighlight={onAddHighlight}
+          onRemoveHighlight={onRemoveHighlight}
+          onUpdateHighlightNote={onUpdateHighlightNote}
+          notePlaceholder={`Nhập ghi chú cho Passage ${activePassageIndex + 1}...`}
+        />
 
         <article
           onMouseUp={captureSelection}
+          onKeyUp={captureSelection}
           className="flex-1 overflow-y-auto cdi-scroll px-6 py-5 space-y-4"
         >
           <header className="space-y-1.5 pb-3 border-b border-[var(--cdi-border)]">
             {passage.subtitle && (
-              <p className="text-xs italic text-[var(--cdi-muted)]">{passage.subtitle}</p>
+              <p className="text-xs italic text-[var(--cdi-muted)]">
+                <HighlightableText text={passage.subtitle} highlights={passageHighlights} />
+              </p>
             )}
             <h2 className="text-xl font-bold font-passage text-[var(--cdi-text)] leading-snug">
-              {passage.title}
+              <HighlightableText text={passage.title} highlights={passageHighlights} />
             </h2>
           </header>
 
@@ -247,40 +159,17 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
                 </figure>
               ) : (
                 <p key={idx} className="leading-[1.7]">
-                  {renderParagraphWithHighlights(para)}
+                  <HighlightableText text={para} highlights={passageHighlights} />
                 </p>
               )
             )}
           </div>
 
-          {passageHighlights.length > 0 && (
-            <div className="pt-4 mt-6 border-t border-[var(--cdi-border)] space-y-2">
-              <p className="text-xs font-semibold text-[var(--cdi-muted)]">
-                Highlights & Notes ({passageHighlights.length})
-              </p>
-              <div className="space-y-1.5">
-                {passageHighlights.map((hl) => (
-                  <div
-                    key={hl.id}
-                    className="flex items-start justify-between gap-2 px-3 py-2 rounded border border-[var(--cdi-border)] bg-[var(--cdi-surface)] text-xs"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">"{hl.text}"</p>
-                      {hl.note && <p className="text-[var(--cdi-muted)] mt-0.5">Note: {hl.note}</p>}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveHighlight(hl.id)}
-                      aria-label="Remove highlight"
-                      className="p-1 text-[var(--cdi-muted)] hover:text-red-600 shrink-0 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <HighlightsNotesList
+            highlights={passageHighlights}
+            onRemoveHighlight={onRemoveHighlight}
+            onUpdateHighlightNote={onUpdateHighlightNote}
+          />
         </article>
       </div>
 
@@ -296,7 +185,11 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
       </div>
 
       {/* Right Pane: Questions */}
-      <div className="flex-1 overflow-y-auto cdi-scroll px-6 py-5 space-y-6 min-h-0">
+      <div
+        onMouseUp={captureSelection}
+        onKeyUp={captureSelection}
+        className="flex-1 overflow-y-auto cdi-scroll px-6 py-5 space-y-6 min-h-0"
+      >
         {passage.questionGroups.map((group) => (
           <QuestionRenderer
             key={group.id}
@@ -304,6 +197,7 @@ export const ReadingView: React.FC<ReadingViewProps> = ({
             answers={answers}
             currentQuestionNumber={currentQuestionNumber}
             textSizeClass={textSizeClass}
+            highlights={passageHighlights}
             onChangeAnswer={onChangeAnswer}
             onFocusQuestion={onFocusQuestion}
           />

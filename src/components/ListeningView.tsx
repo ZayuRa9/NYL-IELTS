@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pause, Play, Volume2 } from 'lucide-react';
-import { ListeningPart } from '../types/exam';
+import { ListeningPart, TextHighlight } from '../types/exam';
+import { getHighlightScopeId } from '../utils/highlightLogic';
+import { HighlightableText } from './HighlightableText';
+import {
+  HighlightsNotesList,
+  HighlightToolbar,
+  useTextSelectionCapture,
+} from './HighlightToolbar';
 import { QuestionRenderer } from './QuestionRenderer';
 
 interface ListeningViewProps {
@@ -9,6 +16,10 @@ interface ListeningViewProps {
   answers: Record<number, string>;
   currentQuestionNumber: number;
   textSizeClass: string;
+  highlights: TextHighlight[];
+  onAddHighlight: (item: TextHighlight) => void;
+  onRemoveHighlight: (id: string) => void;
+  onUpdateHighlightNote?: (id: string, note: string) => void;
   onChangeAnswer: (questionNumber: number, value: string) => void;
   onFocusQuestion: (questionNumber: number) => void;
 }
@@ -19,10 +30,17 @@ export const ListeningView: React.FC<ListeningViewProps> = ({
   answers,
   currentQuestionNumber,
   textSizeClass,
+  highlights,
+  onAddHighlight,
+  onRemoveHighlight,
+  onUpdateHighlightNote,
   onChangeAnswer,
   onFocusQuestion,
 }) => {
   const part = parts[activePartIndex] || parts[0];
+  const scopeId = part ? getHighlightScopeId('listening', part.id) : 'listening:none';
+  const { selectedSnippet, captureSelection, clearSelection } = useTextSelectionCapture(scopeId);
+  const partHighlights = highlights.filter((h) => h.passageId === scopeId);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [volume, setVolume] = useState(0.85);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -161,12 +179,33 @@ export const ListeningView: React.FC<ListeningViewProps> = ({
         </div>
       </div>
 
+      {/* Highlight & Note Toolbar for Listening */}
+      <HighlightToolbar
+        scopeId={scopeId}
+        hintText={`${part.title} · Bôi đen từ khóa trong câu hỏi để Highlight hoặc thêm ghi chú`}
+        highlights={partHighlights}
+        selectedSnippet={selectedSnippet}
+        onClearSelection={clearSelection}
+        onAddHighlight={onAddHighlight}
+        onRemoveHighlight={onRemoveHighlight}
+        onUpdateHighlightNote={onUpdateHighlightNote}
+        notePlaceholder={`Nhập ghi chú cho ${part.title}...`}
+      />
+
       {/* Main Listening Question Sheet */}
-      <div className="flex-1 overflow-y-auto cdi-scroll px-6 py-6">
+      <div
+        onMouseUp={captureSelection}
+        onKeyUp={captureSelection}
+        className="flex-1 overflow-y-auto cdi-scroll px-6 py-6"
+      >
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="pb-4 border-b border-[var(--cdi-border)]">
-            <h2 className="text-lg font-bold text-[var(--cdi-text)]">{part.title}</h2>
-            <p className="text-sm text-[var(--cdi-muted)] mt-1">{part.instruction}</p>
+            <h2 className="text-lg font-bold text-[var(--cdi-text)]">
+              <HighlightableText text={part.title} highlights={partHighlights} />
+            </h2>
+            <p className="text-sm text-[var(--cdi-muted)] mt-1">
+              <HighlightableText text={part.instruction} highlights={partHighlights} />
+            </p>
           </div>
 
           <div className="space-y-6">
@@ -177,11 +216,18 @@ export const ListeningView: React.FC<ListeningViewProps> = ({
                 answers={answers}
                 currentQuestionNumber={currentQuestionNumber}
                 textSizeClass={textSizeClass}
+                highlights={partHighlights}
                 onChangeAnswer={onChangeAnswer}
                 onFocusQuestion={onFocusQuestion}
               />
             ))}
           </div>
+
+          <HighlightsNotesList
+            highlights={partHighlights}
+            onRemoveHighlight={onRemoveHighlight}
+            onUpdateHighlightNote={onUpdateHighlightNote}
+          />
         </div>
       </div>
     </div>

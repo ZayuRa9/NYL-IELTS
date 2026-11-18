@@ -15,6 +15,7 @@ import {
   processAntiCheatViolation,
 } from './examLogic';
 import { buildHiddenAuditText, generateSubmissionDocxBuffer } from './docxExport';
+import { getHighlightScopeId, splitTextByHighlights } from './highlightLogic';
 import { DEFAULT_EXAMS } from '../data/defaultExams';
 import { AntiCheatState } from '../types/exam';
 
@@ -417,4 +418,24 @@ test('Merged exam contains complete 40-question Listening section with neutral b
   assert.ok(graded.byQuestionType.some((b) => b.questionType === 'multiple-choice' && b.total === 10));
   assert.ok(graded.byQuestionType.some((b) => b.questionType === 'matching' && b.total === 10));
 });
+
+test('highlightLogic scopes Listening, Reading, Writing independently and splits text segments cleanly', () => {
+  assert.equal(getHighlightScopeId('listening', 'part-1'), 'listening:part-1');
+  assert.equal(getHighlightScopeId('reading', 'p1'), 'reading:p1');
+  assert.equal(getHighlightScopeId('writing', 'task-1'), 'writing:task-1');
+
+  const segments = splitTextByHighlights(
+    'Employees working from home at least three days a week in 2026.',
+    [
+      { id: 'n1', passageId: 'writing:task-1', text: '', note: 'Outline: overview + body 1' },
+      { id: 'h1', passageId: 'writing:task-1', text: 'three days a week', note: 'Key frequency' },
+      { id: 'h2', passageId: 'writing:task-1', text: '2026' },
+    ]
+  );
+
+  const highlightedTexts = segments.filter((s) => s.type === 'highlight').map((s) => s.text);
+  assert.deepEqual(highlightedTexts, ['three days a week', '2026']);
+  assert.equal(segments.map((s) => s.text).join(''), 'Employees working from home at least three days a week in 2026.');
+});
+
 
