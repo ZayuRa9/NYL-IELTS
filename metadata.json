@@ -1,0 +1,6 @@
+{
+  "name": "IELTS Computer-Delivered Exam Studio",
+  "description": "Authentic computer-delivered IELTS mock exam platform with fullscreen proctoring, teacher exam upload studio, and Microsoft Word submission export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

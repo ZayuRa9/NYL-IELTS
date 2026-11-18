@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .font-passage {
+    font-family: 'Source Serif 4', Georgia, Cambria, serif;
+  }
+
+  .font-mono-num {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Official CDI Exam Theme Modes */
+.cdi-theme-standard {
+  --cdi-bg: #ffffff;
+  --cdi-surface: #f4f6f8;
+  --cdi-border: #d1d5db;
+  --cdi-text: #111827;
+  --cdi-muted: #4b5563;
+  --cdi-input-bg: #ffffff;
+  --cdi-input-border: #6b7280;
+  --cdi-highlight: #fef08a;
+  --cdi-highlight-text: #111827;
+}
+
+.cdi-theme-white-on-black {
+  --cdi-bg: #111317;
+  --cdi-surface: #1b1f26;
+  --cdi-border: #374151;
+  --cdi-text: #f9fafb;
+  --cdi-muted: #d1d5db;
+  --cdi-input-bg: #1f2937;
+  --cdi-input-border: #9ca3af;
+  --cdi-highlight: #ca8a04;
+  --cdi-highlight-text: #ffffff;
+}
+
+.cdi-theme-yellow-on-black {
+  --cdi-bg: #0b0d10;
+  --cdi-surface: #161920;
+  --cdi-border: #4b5563;
+  --cdi-text: #fef08a;
+  --cdi-muted: #fde047;
+  --cdi-input-bg: #18181b;
+  --cdi-input-border: #facc15;
+  --cdi-highlight: #2563eb;
+  --cdi-highlight-text: #ffffff;
+}
+
+/* Custom sleek scrollbars for split panes */
+.cdi-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.cdi-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cdi-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
+.cdi-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.75);
+}
